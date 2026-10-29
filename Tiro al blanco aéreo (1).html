@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tiro al blanco aéreo</title>
+<style>
+:root{--hud:#fff6e0;--panel:rgba(10,22,40,.58);--acc:#ffb703;--bad:#ff6b5e;--bg:#9fd3f0;--card:#fff6e0;--ink:#10243a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1b2e;--card:#16283f;--ink:#fff6e0}}
+:root[data-theme="dark"]{--bg:#0d1b2e;--card:#16283f;--ink:#fff6e0}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--hud);font-family:"Trebuchet MS",Verdana,system-ui,sans-serif;-webkit-user-select:none;user-select:none;touch-action:none;font-variant-numeric:tabular-nums}
+#c{position:fixed;inset:0}
+.hud{position:fixed;background:var(--panel);padding:8px 14px;border-radius:12px;font-size:15px;line-height:1.5;pointer-events:none}
+.hud b{color:var(--acc);font-size:20px}
+#tl{top:calc(env(safe-area-inset-top,0px) + 10px);left:10px}
+#tc{top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);font-size:30px;font-weight:700;text-align:center;min-width:64px}
+#bl{bottom:calc(env(safe-area-inset-bottom,0px) + 10px);left:10px}
+#bar{height:6px;background:rgba(255,255,255,.25);border-radius:3px;margin-top:4px;width:120px}
+#bar i{display:block;height:100%;background:var(--acc);border-radius:3px;width:60%}
+#ch{position:fixed;width:34px;height:34px;border:2px solid var(--acc);border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;left:50%;top:50%}
+#ch::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;background:var(--acc);border-radius:50%}
+#tgt{position:fixed;color:var(--acc);font-weight:700;font-size:16px;transform:translate(-50%,-50%);pointer-events:none;text-shadow:0 1px 3px #000;white-space:nowrap}
+#warn{position:fixed;top:22%;left:50%;transform:translateX(-50%);color:var(--bad);font-size:24px;font-weight:700;text-shadow:0 1px 4px #000;opacity:0;pointer-events:none;transition:opacity .2s}
+#ov{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,18,34,.6);padding:16px}
+.card{background:var(--card);color:var(--ink);max-width:440px;width:100%;border-radius:18px;padding:24px 26px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.card h1{margin:0 0 6px;font-size:28px;line-height:1.15}
+.card p{margin:6px 0 14px;font-size:16px;line-height:1.5}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px;margin-bottom:18px}
+.keys span:nth-child(odd){font-weight:700}
+button{font:inherit;font-weight:700;font-size:18px;background:#e63946;color:#fff;border:0;border-radius:12px;padding:12px 28px;cursor:pointer}
+button:focus-visible{outline:3px solid var(--acc);outline-offset:3px}
+#fire{display:none;position:fixed;right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);width:92px;height:92px;border-radius:50%;padding:0;font-size:15px;background:rgba(230,57,70,.85)}
+@media (pointer:coarse){#fire{display:block}}
+</style>
+</head>
+<body>
+<div id="c"></div>
+<div class="hud" id="tl">Puntos <b id="sc">0</b><br>Derribados <b id="hi">0</b></div>
+<div class="hud" id="tc"><span id="tm">90</span></div>
+<div class="hud" id="bl">Velocidad <b id="sp">0</b> km/h<br>Altura <b id="al">0</b> m<div id="bar"><i id="th"></i></div></div>
+<div id="ch"></div><div id="tgt"></div><div id="warn"></div>
+<button id="fire">Disparar</button>
+<div id="ov"><div class="card">
+<h1 id="ttl">Tiro al blanco aéreo</h1>
+<p id="msg">Derriba los blancos rojos antes de que se acabe el tiempo. Cada blanco te da 3 segundos extra.</p>
+<div class="keys" id="keys">
+<span>W / S o ↑ / ↓</span><span>Subir / bajar</span>
+<span>A / D o ← / →</span><span>Girar a izquierda / derecha</span>
+<span>Q / E</span><span>Timón</span>
+<span>R / F</span><span>Más / menos motor</span>
+<span>Clic o espacio</span><span>Disparar</span>
+<span>I</span><span>Invertir cabeceo</span>
+<span>Pantalla táctil</span><span>Arrastra para pilotar</span>
+</div>
+<button id="go">Despegar</button>
+</div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=id=>document.getElementById(id),R=(a,b)=>a+Math.random()*(b-a),cl=(v,m=1)=>Math.max(-m,Math.min(m,v));
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
+$('c').appendChild(renderer.domElement);
+const scene=new THREE.Scene(),SKY=0x8ecdf0;
+scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(SKY,300,2200);
+const cam=new THREE.PerspectiveCamera(66,innerWidth/innerHeight,.5,3500);
+scene.add(new THREE.HemisphereLight(0xffffff,0x4d6b3c,.95));
+const sun=new THREE.DirectionalLight(0xfff1cc,.8);sun.position.set(300,500,150);scene.add(sun);
+const lam=c=>new THREE.MeshLambertMaterial({color:c});
+
+// Suelo con cuadrícula que sigue al avión
+const cv=document.createElement('canvas');cv.width=cv.height=128;
+const g=cv.getContext('2d');g.fillStyle='#5a8f44';g.fillRect(0,0,128,128);
+g.fillStyle='#639a4b';g.fillRect(0,0,64,64);g.fillRect(64,64,64,64);
+const tex=new THREE.CanvasTexture(cv);tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(100,100);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(8000,8000),new THREE.MeshLambertMaterial({map:tex}));
+ground.rotation.x=-Math.PI/2;scene.add(ground);
+
+// Montañas y nubes
+const mts=[];
+for(let i=0;i<60;i++){const h=R(80,420),r=R(60,200);
+ const m=new THREE.Mesh(new THREE.ConeGeometry(r,h,6),lam(i%3?0x6f7f78:0x9a9fa3));
+ let a,d,x,z;do{a=R(0,6.28);d=R(600,2500);x=Math.cos(a)*d;z=Math.sin(a)*d}while(Math.hypot(x,z-700)<450);m.position.set(x,h/2,z);m.rotation.y=R(0,3);scene.add(m);mts.push({x,z,h,r})}
+const cMat=new THREE.MeshLambertMaterial({color:0xffffff,transparent:true,opacity:.92});
+for(let i=0;i<28;i++){const c=new THREE.Mesh(new THREE.SphereGeometry(R(25,50),10,8),cMat);
+ c.scale.set(2.6,.6,1.6);const a=R(0,6.28),d=R(0,2200);c.position.set(Math.cos(a)*d,R(350,650),Math.sin(a)*d);scene.add(c)}
+
+// Avión (el morro apunta a -Z)
+const plane=new THREE.Group();
+const part=(geo,c,x,y,z,rx)=>{const o=new THREE.Mesh(geo,lam(c));o.position.set(x,y,z);if(rx)o.rotation.x=rx;plane.add(o)};
+part(new THREE.CylinderGeometry(.45,.7,6,12),0xf1f3f5,0,0,0,Math.PI/2);
+part(new THREE.ConeGeometry(.7,1.8,12),0xd9381e,0,0,-3.9,-Math.PI/2);
+part(new THREE.BoxGeometry(11,.15,1.9),0xdfe5ea,0,0,-.4);
+part(new THREE.BoxGeometry(4,.12,1),0xdfe5ea,0,0,2.6);
+part(new THREE.BoxGeometry(.12,1.5,1.2),0xd9381e,0,.8,2.6);
+scene.add(plane);
+const dummy=new THREE.Object3D();
+
+// Blancos
+const tg=[],tGeo=new THREE.SphereGeometry(10,20,14),rGeo=new THREE.TorusGeometry(14,1.3,8,32);
+const ringMat=new THREE.MeshBasicMaterial({color:0xffffff});
+function spawn(){const t=new THREE.Group();
+ t.add(new THREE.Mesh(tGeo,new THREE.MeshLambertMaterial({color:0xe63946,emissive:0x5a0a12})));
+ t.add(new THREE.Mesh(rGeo,ringMat));
+ const a=R(0,6.28),d=R(200,1500);t.position.set(Math.cos(a)*d,R(25,380),Math.sin(a)*d);
+ scene.add(t);tg.push(t)}
+
+// Balas y explosiones
+const bGeo=new THREE.SphereGeometry(.9,6,6),bMat=new THREE.MeshBasicMaterial({color:0xffe066}),pGeo=new THREE.SphereGeometry(1.6,6,6);
+let bullets=[],parts=[],fireSide=0,fireCd=0;
+function fire(){fireSide^=1;
+ const q=plane.quaternion,p=new THREE.Vector3(fireSide?3.5:-3.5,0,-2).applyQuaternion(q).add(plane.position);
+ const m=new THREE.Mesh(bGeo,bMat);m.position.copy(p);scene.add(m);
+ bullets.push({m,v:new THREE.Vector3(0,0,-1).applyQuaternion(q).multiplyScalar(speed+650),t:0});shots++;beep(520,.06)}
+function boom(pos){for(let i=0;i<26;i++){
+ const m=new THREE.Mesh(pGeo,new THREE.MeshBasicMaterial({color:i%2?0xff8c00:0xffe066,transparent:true}));
+ m.position.copy(pos);scene.add(m);
+ parts.push({m,t:0,v:new THREE.Vector3(R(-1,1),R(-1,1),R(-1,1)).normalize().multiplyScalar(R(30,90))})}}
+let ac;function beep(f,d,type='square',vol=.03){try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();
+ const o=ac.createOscillator(),gn=ac.createGain();o.type=type;o.frequency.value=f;gn.gain.value=vol;
+ gn.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d);o.connect(gn);gn.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+function seg(a,b,c,r){const ab=b.clone().sub(a),t=Math.max(0,Math.min(1,c.clone().sub(a).dot(ab)/(ab.lengthSq()||1)));
+ return a.clone().addScaledVector(ab,t).distanceTo(c)<r}
+
+// Estado
+let state='menu',score=0,hits=0,shots=0,time=90,throttle=.6,speed=90,best=0,inv=1,fireBtn=false,mouseFire=false,crashed=false;
+try{best=+localStorage.getItem('tiro-aereo-mejor')||0}catch(e){}
+const keys={},touch={x:0,y:0};
+function start(){tg.forEach(t=>scene.remove(t));tg.length=0;for(let i=0;i<10;i++)spawn();
+ plane.position.set(0,160,700);plane.quaternion.identity();plane.visible=true;crashed=false;throttle=.6;speed=90;
+ score=hits=shots=0;time=90;state='play';$('ov').style.display='none';$('go').blur()}
+function over(crash){state='over';$('warn').style.opacity=0;
+ if(score>best){best=score;try{localStorage.setItem('tiro-aereo-mejor',best)}catch(e){}}
+ const acc=shots?Math.round(hits/shots*100):0;
+ $('ttl').textContent=crash?'Te estrellaste':'Tiempo terminado';
+ $('msg').textContent=(crash?'El avión se destruyó contra el suelo. ':'')+`Hiciste ${score} puntos y derribaste ${hits} blancos con ${acc}% de precisión. Tu mejor marca es ${best}.`;
+ $('keys').style.display='none';$('go').textContent='Volver a volar';$('ov').style.display='flex'}
+$('go').onclick=start;
+function crash(){crashed=true;plane.visible=false;boom(plane.position);boom(plane.position);beep(90,.7,'sawtooth',.1);over(true)}
+
+function bank(){return new THREE.Vector3(1,0,0).applyQuaternion(plane.quaternion).y}
+function fly(dt,inp){
+ const up=new THREE.Vector3(0,1,0);
+ plane.rotateX(inp.p*1.3*dt);
+ plane.rotateZ(inp.r?-inp.r*2.4*dt:-bank()*1.2*dt);
+ plane.rotateY(inp.y*.9*dt);
+ plane.rotateOnWorldAxis(up,bank()*1.1*dt);
+ const f=new THREE.Vector3(0,0,-1).applyQuaternion(plane.quaternion);
+ speed+=(45+throttle*105-f.y*45-speed)*Math.min(1,dt*.8);speed=Math.max(35,speed);
+ plane.position.addScaledVector(f,speed*dt);
+ let msg='';
+ if(plane.position.y<4){plane.position.y=4;if(state==='play')crash();else if(f.y<0)plane.rotateX(1.6*dt)}
+ if(state==='play'&&mts.some(m=>{const y=plane.position.y;return y<m.h&&Math.hypot(plane.position.x-m.x,plane.position.z-m.z)<m.r*.85*(1-y/m.h)}))crash();
+ if(plane.position.y>900)plane.position.y=900;
+ if(plane.position.y<30)msg='Vuelas muy bajo';
+ const d=Math.hypot(plane.position.x,plane.position.z);
+ if(d>2000)msg='Vuelve a la zona de juego';
+ if(d>2200){dummy.position.copy(plane.position);dummy.lookAt(plane.position.x*2,plane.position.y,plane.position.z*2);
+  plane.quaternion.slerp(dummy.quaternion,Math.min(1,dt*1.5))}
+ $('warn').textContent=msg;$('warn').style.opacity=msg?1:0;
+ ground.position.set(Math.round(plane.position.x/80)*80,0,Math.round(plane.position.z/80)*80);
+ return f}
+
+function loop(now){requestAnimationFrame(loop);
+ const dt=Math.min(.05,(now-last)/1000);last=now;let f;
+ if(state==='play'){
+  const pitch=((keys.KeyW||keys.ArrowUp?1:0)-(keys.KeyS||keys.ArrowDown?1:0))*inv+touch.y*inv;
+  const roll=cl((keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+touch.x);
+  const yaw=(keys.KeyQ?1:0)-(keys.KeyE?1:0);
+  throttle=Math.max(0,Math.min(1,throttle+((keys.KeyR?1:0)-(keys.KeyF?1:0))*.4*dt));
+  f=fly(dt,{p:cl(pitch),r:roll,y:yaw});
+  fireCd-=dt;if((keys.Space||fireBtn||mouseFire)&&fireCd<=0){fire();fireCd=.09}
+  time-=dt;if(time<=0){time=0;over()}
+ }else{f=crashed?new THREE.Vector3(0,0,-1):fly(dt,{p:0,r:.3,y:0})}
+ // Cámara de persecución
+ const off=new THREE.Vector3(0,3.2,14).applyQuaternion(plane.quaternion).add(plane.position);
+ cam.position.lerp(off,1-Math.exp(-10*dt));cam.quaternion.slerp(plane.quaternion,1-Math.exp(-8*dt));
+ cam.updateMatrixWorld();
+ tg.forEach(t=>t.rotation.y+=dt);
+ // Balas
+ for(let i=bullets.length-1;i>=0;i--){const b=bullets[i],prev=b.m.position.clone();
+  b.m.position.addScaledVector(b.v,dt);b.t+=dt;let hit=false;
+  for(let j=tg.length-1;j>=0;j--)if(seg(prev,b.m.position,tg[j].position,13)){kill(j);hit=true;break}
+  if(hit||b.t>2||b.m.position.y<0){scene.remove(b.m);bullets.splice(i,1)}}
+ for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.t+=dt;p.m.position.addScaledVector(p.v,dt);
+  p.m.material.opacity=Math.max(0,1-p.t/.9);if(p.t>.9){scene.remove(p.m);p.m.material.dispose();parts.splice(i,1)}}
+ hud(f);renderer.render(scene,cam)}
+function kill(j){const t=tg[j];boom(t.position);
+ score+=100+Math.round(plane.position.distanceTo(t.position)/10);hits++;time=Math.min(120,time+3);
+ scene.remove(t);tg.splice(j,1);spawn();beep(180,.4,'sawtooth',.08)}
+function hud(f){
+ $('sc').textContent=score;$('hi').textContent=hits;$('tm').textContent=Math.ceil(time);
+ $('sp').textContent=Math.round(speed*3.6);$('al').textContent=Math.round(plane.position.y);
+ $('th').style.width=Math.round(throttle*100)+'%';
+ const play=state==='play';$('ch').style.display=$('tgt').style.display=play?'block':'none';
+ if(!play)return;
+ const p=f.clone().multiplyScalar(500).add(plane.position).project(cam);
+ $('ch').style.left=(p.x+1)/2*innerWidth+'px';$('ch').style.top=(1-p.y)/2*innerHeight+'px';
+ let n=null,nd=1e9;tg.forEach(t=>{const d=t.position.distanceTo(plane.position);if(d<nd){nd=d;n=t}});
+ const v=n.position.clone().project(cam);if(v.z>1){v.x=-v.x;v.y=-v.y}
+ const off=v.z>1||Math.abs(v.x)>.92||Math.abs(v.y)>.88,rx=v.x,ry=v.y;
+ const arrow=Math.abs(rx)>Math.abs(ry)?(rx>0?'→':'←'):(ry>0?'↑':'↓');
+ $('tgt').textContent=(off?arrow:'◎')+' '+Math.round(nd)+' m';
+ $('tgt').style.left=(cl(v.x,.92)+1)/2*innerWidth+'px';$('tgt').style.top=(1-cl(v.y,.88))/2*innerHeight+'px'}
+
+// Entradas
+addEventListener('keydown',e=>{keys[e.code]=true;
+ if(e.code==='KeyI')inv=-inv;
+ if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)&&state==='play')e.preventDefault()});
+addEventListener('keyup',e=>keys[e.code]=false);
+let sp=null,ox=0,oy=0;
+addEventListener('pointerdown',e=>{if(e.target.id==='fire'||state!=='play')return;if(e.pointerType==='mouse'){if(e.button===0)mouseFire=true;return}sp=e.pointerId;ox=e.clientX;oy=e.clientY});
+addEventListener('pointermove',e=>{if(e.pointerId!==sp)return;touch.x=cl((e.clientX-ox)/70);touch.y=cl((e.clientY-oy)/70)});
+const endp=e=>{if(e.pointerType==='mouse')mouseFire=false;if(e.pointerId===sp){sp=null;touch.x=touch.y=0}};
+addEventListener('pointerup',endp);addEventListener('pointercancel',endp);
+$('fire').addEventListener('pointerdown',e=>{fireBtn=true;e.preventDefault()});
+['pointerup','pointerleave','pointercancel'].forEach(ev=>$('fire').addEventListener(ev,()=>fireBtn=false));
+addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()});
+
+plane.position.set(0,160,700);for(let i=0;i<10;i++)spawn();
+cam.position.set(0,165,714);
+let last=performance.now();requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ping-pong contra la máquina</title>
+<style>
+:root{color-scheme:light;--bg:#eef2f5;--ink:#14212b;--mute:#5b6b78;--btn:#14212b;--btnink:#fff;--line:#c9d3db;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#0f1519;--ink:#e8eef2;--mute:#8fa1ae;--btn:#e8eef2;--btnink:#0f1519;--line:#2a3640}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0f1519;--ink:#e8eef2;--mute:#8fa1ae;--btn:#e8eef2;--btnink:#0f1519;--line:#2a3640}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:860px;margin:0 auto;padding:20px 16px 28px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+h1{font-size:1.5rem;margin:0;letter-spacing:-.01em}
+.score{display:flex;gap:18px;font-variant-numeric:tabular-nums;font-size:1.05rem}
+.score b{font-size:2rem;line-height:1;margin-left:6px}
+.stage{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--line);touch-action:none}
+canvas{display:block;width:100%;height:auto;cursor:none}
+.msg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;color:#fff;background:rgba(8,28,44,.55);padding:16px}
+.msg[hidden]{display:none}
+.msg h2{margin:0;font-size:1.6rem}
+.msg p{margin:0;max-width:34ch;font-size:.95rem;opacity:.92}
+button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:10px 18px;background:var(--btn);color:var(--btnink);font-weight:600}
+button:focus-visible,select:focus-visible{outline:3px solid #f5a524;outline-offset:2px}
+.msg button{background:#fff;color:#0b2a42}
+.bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px;color:var(--mute);font-size:.9rem}
+select{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <h1>Ping-pong</h1>
+    <div class="score" aria-live="polite"><span>Tú<b id="sp">0</b></span><span>Máquina<b id="sm">0</b></span></div>
+  </div>
+  <div class="stage">
+    <canvas id="c" width="800" height="450" aria-label="Mesa de ping-pong"></canvas>
+    <div class="msg" id="msg">
+      <h2 id="mt">¿Jugamos?</h2>
+      <p id="mp">Gana quien llegue primero a 7 puntos. Mueve el ratón, el dedo o usa las flechas ↑ ↓ para controlar tu pala.</p>
+      <button id="go">Empezar partida</button>
+    </div>
+  </div>
+  <div class="bar">
+    <label>Dificultad
+      <select id="lvl"><option value="facil">Fácil</option><option value="medio" selected>Media</option><option value="dificil">Difícil</option></select>
+    </label>
+    <span>Espacio: pausa</span>
+  </div>
+</main>
+<script>
+(function(){
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const W=800,H=450,PW=12,PH=84,R=8,WIN=7,MX=28;
+const LV={facil:{sp:220,err:80},medio:{sp:330,err:40},dificil:{sp:450,err:12}};
+const $=id=>document.getElementById(id);
+const msg=$('msg'),mt=$('mt'),mp=$('mp'),go=$('go'),lvl=$('lvl');
+let st='idle',sp=0,sm=0,py=H/2,ay=H/2,aiOff=0,wait=0,keys={};
+const ball={x:W/2,y:H/2,vx:0,vy:0,s:0};
+let ac=null;
+function beep(f,d){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.type='square';g.gain.value=.04;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+function serve(dir){
+  ball.x=W/2;ball.y=H/2;ball.s=300;
+  const a=(Math.random()-.5)*.7;
+  ball.vx=Math.cos(a)*ball.s*dir;ball.vy=Math.sin(a)*ball.s;
+  wait=.8;aiOff=(Math.random()*2-1)*LV[lvl.value].err;
+}
+function start(){sp=sm=0;$('sp').textContent=0;$('sm').textContent=0;py=ay=H/2;st='play';msg.hidden=true;serve(Math.random()<.5?1:-1)}
+function over(){
+  st='idle';msg.hidden=false;
+  const win=sp>sm;
+  mt.textContent=win?'¡Ganaste!':'Gana la máquina';
+  mp.textContent='Resultado final: '+sp+' a '+sm+'. '+(win?'Prueba una dificultad mayor.':'¿Revancha?');
+  go.textContent='Jugar otra vez';
+}
+function pause(){
+  if(st==='play'){st='pause';msg.hidden=false;mt.textContent='Pausa';mp.textContent='Pulsa continuar o la barra espaciadora.';go.textContent='Continuar'}
+  else if(st==='pause'){st='play';msg.hidden=true}
+}
+go.onclick=()=>{st==='pause'?pause():start()};
+addEventListener('keydown',e=>{
+  if(e.code==='Space'){e.preventDefault();if(st==='idle')start();else pause()}
+  if(e.code==='ArrowUp'||e.code==='ArrowDown'){e.preventDefault();keys[e.code]=1}
+});
+addEventListener('keyup',e=>{delete keys[e.code]});
+function pointer(e){
+  const r=cv.getBoundingClientRect();
+  py=(e.clientY-r.top)*H/r.height;
+}
+cv.addEventListener('pointermove',pointer);
+cv.addEventListener('pointerdown',pointer);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function point(who){
+  if(who==='p'){sp++;$('sp').textContent=sp}else{sm++;$('sm').textContent=sm}
+  beep(who==='p'?660:180,.25);
+  if(sp>=WIN||sm>=WIN){over();return}
+  serve(who==='p'?1:-1);
+}
+function hit(left){
+  const py_=left?py:ay;
+  const rel=clamp((ball.y-py_)/(PH/2),-1,1);
+  const a=rel*.9;
+  ball.s=Math.min(ball.s*1.06,820);
+  const d=left?1:-1;
+  ball.vx=Math.cos(a)*ball.s*d;ball.vy=Math.sin(a)*ball.s;
+  if(!left)aiOff=(Math.random()*2-1)*LV[lvl.value].err;
+  beep(left?440:330,.05);
+}
+function update(dt){
+  if(keys.ArrowUp)py-=520*dt;
+  if(keys.ArrowDown)py+=520*dt;
+  py=clamp(py,PH/2,H-PH/2);
+  const L=LV[lvl.value];
+  const target=ball.vx>0?ball.y+aiOff:H/2;
+  const dy=target-ay,step=L.sp*dt;
+  ay+=Math.abs(dy)<step?dy:Math.sign(dy)*step;
+  ay=clamp(ay,PH/2,H-PH/2);
+  if(wait>0){wait-=dt;return}
+  ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;
+  if(ball.y<R){ball.y=R;ball.vy=Math.abs(ball.vy);beep(250,.03)}
+  if(ball.y>H-R){ball.y=H-R;ball.vy=-Math.abs(ball.vy);beep(250,.03)}
+  const lx=MX+PW,rx=W-MX-PW;
+  if(ball.vx<0&&ball.x-R<=lx&&ball.x>MX-R&&Math.abs(ball.y-py)<=PH/2+R){ball.x=lx+R;hit(true)}
+  else if(ball.vx>0&&ball.x+R>=rx&&ball.x<W-MX+R&&Math.abs(ball.y-ay)<=PH/2+R){ball.x=rx-R;hit(false)}
+  if(ball.x<-R)point('m');
+  else if(ball.x>W+R)point('p');
+}
+function paddle(x,y,c){
+  ctx.fillStyle=c;ctx.beginPath();ctx.roundRect(x,y-PH/2,PW,PH,5);ctx.fill();
+}
+function draw(){
+  ctx.fillStyle='#14506e';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#f4f7f9';ctx.lineWidth=4;ctx.strokeRect(10,10,W-20,H-20);
+  ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(W/2,10);ctx.lineTo(W/2,H-10);ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.35)';
+  for(let y=14;y<H-10;y+=22)ctx.fillRect(W/2-1,y,2,10);
+  paddle(MX,py,'#d93a3a');paddle(W-MX-PW,ay,'#111');
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ball.x,ball.y,R,0,7);ctx.fill();
+}
+let last=performance.now();
+function loop(t){
+  const dt=Math.min((t-last)/1000,.04);last=t;
+  if(st==='play')update(dt);
+  draw();requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

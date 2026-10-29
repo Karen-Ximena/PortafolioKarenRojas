@@ -1,0 +1,89 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Ciudad Mutante</title>
+<style>
+:root{--bg:#070a0f;--fg:#e8eef5;--ac:#ff4d4d;--st:#4dffb8;--pn:rgba(8,12,18,.72);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#05070a}}
+:root[data-theme="dark"]{--bg:#05070a}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,sans-serif;overflow:hidden;user-select:none}
+canvas{display:block}
+.p{position:fixed;background:var(--pn);padding:8px 12px;border-radius:8px;font-size:14px}
+#hud{top:10px;left:10px}#bar{width:180px;height:10px;background:#333;border-radius:5px;overflow:hidden;margin-bottom:6px}
+#hp{height:100%;background:var(--ac);width:100%}
+#boss{top:10px;left:50%;transform:translateX(-50%);text-align:center;width:260px}
+#bb{height:10px;background:#333;border-radius:5px;overflow:hidden}#bh{height:100%;background:#b04ad8;width:100%}
+#shop{bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:8px;padding:6px}
+.s{padding:6px 10px;border:1px solid #555;border-radius:6px;text-align:center;min-width:80px}.s.on{border-color:var(--st);color:var(--st)}
+#cr{position:fixed;left:50%;top:50%;width:14px;height:14px;margin:-7px;border:2px solid #fff8;border-radius:50%;pointer-events:none}
+#msg{position:fixed;top:30%;width:100%;text-align:center;font-size:26px;font-weight:700;color:var(--st);pointer-events:none;opacity:0;text-shadow:0 0 8px #000}
+#dm{position:fixed;inset:0;background:#f00;opacity:0;pointer-events:none}
+#ov{position:fixed;inset:0;background:rgba(5,7,10,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;cursor:pointer}
+#ov h1{font-size:38px;margin:0 0 10px;color:var(--ac)}#ov p{max-width:520px;line-height:1.5;margin:6px}
+</style></head><body>
+<div id="hud" class="p"><div id="bar"><div id="hp"></div></div><div>◆ Piedras: <b id="st">0</b></div><div id="wn"></div><div id="bd"></div></div>
+<div id="boss" class="p">Mutante Gigante<div id="bb"><div id="bh"></div></div></div>
+<div id="shop" class="p"></div><div id="cr"></div><div id="msg"></div><div id="dm"></div>
+<div id="ov"><h1>CIUDAD MUTANTE</h1><p>Los mutantes tienen una <b style="color:var(--st)">piedra brillante</b> en un punto aleatorio del cuerpo: dispárale para hacerles ×4 de daño. Recoge las piedras caídas y úsalas como moneda para comprar mejores armas.</p><p>El Gigante del centro no se mueve, pero invoca mutantes cada pocos segundos. ¡Destrúyelo para ganar!</p><p><b>WASD</b> moverse · <b>Shift</b> correr · <b>Ratón</b> apuntar · <b>Clic / Espacio</b> disparar · <b>1–4</b> elegir o comprar arma · <b>Flechas</b> girar si el ratón no se bloquea</p><p id="go"><b>Haz clic para jugar</b></p></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=i=>document.getElementById(i),R=Math.random,sc=new THREE.Scene(),cam=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,300);
+sc.background=new THREE.Color(0x0a0e14);sc.fog=new THREE.Fog(0x0a0e14,20,130);cam.rotation.order='YXZ';sc.add(cam);
+const ren=new THREE.WebGLRenderer({antialias:true});ren.setSize(innerWidth,innerHeight);document.body.prepend(ren.domElement);
+addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();ren.setSize(innerWidth,innerHeight)});
+sc.add(new THREE.HemisphereLight(0x8899bb,0x222222,.95));const sun=new THREE.DirectionalLight(0xffffff,.6);sun.position.set(30,60,20);sc.add(sun);
+const gr=new THREE.Mesh(new THREE.PlaneGeometry(300,300),new THREE.MeshLambertMaterial({color:0x1b1f24}));gr.rotation.x=-Math.PI/2;sc.add(gr);
+const pl=new THREE.Mesh(new THREE.PlaneGeometry(20,20),new THREE.MeshLambertMaterial({color:0x3a2a3a}));pl.rotation.x=-Math.PI/2;pl.position.y=.02;sc.add(pl);
+const solids=[],bl=[];
+for(let i=-3;i<=3;i++)for(let j=-3;j<=3;j++){if(!i&&!j)continue;const h=8+R()*24,m=new THREE.Mesh(new THREE.BoxGeometry(20,h,20),new THREE.MeshLambertMaterial({color:new THREE.Color().setHSL(.58+R()*.08,.12,.18+R()*.12)}));m.position.set(i*32,h/2,j*32);sc.add(m);solids.push(m);bl.push([i*32,j*32])}
+const P={x:16,z:80},K={};let yaw=Math.PI,pitch=0,hp=100,stones=0,cw=0,own=[1,0,0,0],kills=0,nx=0,kick=0,firing=false,started=false,paused=false,over=false,usesLock=false,spT=2;
+const WP=[{n:'Pistola',d:12,cd:.4,p:1,s:0,c:0,col:0x888888},{n:'Escopeta',d:14,cd:.9,p:7,s:.16,c:8,col:0x8a5a2a},{n:'Rifle',d:12,cd:.11,p:1,s:.015,c:20,col:0x3a6a9a},{n:'Plasma',d:45,cd:.28,p:1,s:0,c:40,col:0xb04ad8}];
+const gun=new THREE.Mesh(new THREE.BoxGeometry(.12,.14,.6),new THREE.MeshLambertMaterial({color:0x888888}));gun.position.set(.3,-.25,-.6);cam.add(gun);
+function shop(){$('shop').innerHTML=WP.map((w,i)=>`<div class="s${i==cw?' on':''}">${i+1}. ${w.n}<br><small>${own[i]?'✔ tuya':w.c+' ◆'}</small></div>`).join('');$('st').textContent=stones}
+function msg(t,c){const m=$('msg');m.textContent=t;m.style.color=c||'var(--st)';m.style.opacity=1;clearTimeout(msg.t);msg.t=setTimeout(()=>m.style.opacity=0,900)}
+function pick(i){if(!own[i]){if(stones<WP[i].c){msg('Faltan '+(WP[i].c-stones)+' piedras','var(--ac)');return}stones-=WP[i].c;own[i]=1;msg('¡Compraste: '+WP[i].n+'!')}cw=i;gun.material.color.setHex(WP[i].col);shop()}
+const en=[],pk=[],stGeo=new THREE.OctahedronGeometry(.22),stMat=new THREE.MeshBasicMaterial({color:0x4dffb8});
+function mutant(x,z,boss){
+ const g=new THREE.Group(),mat=new THREE.MeshLambertMaterial({color:boss?0x7a2a5a:new THREE.Color().setHSL(.2+R()*.15,.5,.3)}),parts=[];
+ const add=(w,h,d,px,py,pz)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(px,py,pz);g.add(m);parts.push(m)};
+ add(.8,1,.5,0,1.5,0);add(.5,.5,.5,0,2.25,0);add(.25,.9,.25,-.6,1.5,0);add(.25,.9,.25,.6,1.5,0);add(.3,.9,.3,-.2,.5,0);add(.3,.9,.3,.2,.5,0);
+ const p=parts[R()*6|0],gp=p.geometry.parameters,ax=R()*3|0,o=[0,0,0];o[ax]=(R()<.5?-1:1)*[gp.width,gp.height,gp.depth][ax]/2;
+ const s=new THREE.Mesh(stGeo,stMat);s.position.set(...o);s.userData.stone=1;p.add(s);
+ const e={g,mat,s,parts,hp:boss?700:45,max:boss?700:45,boss,sp:2.4+R()*1.4,t:R()*6,fl:0,hc:0,sm:6,at:0};
+ g.traverse(m=>{if(m.isMesh)m.userData.e=e});if(boss)g.scale.setScalar(3.5);g.position.set(x,0,z);sc.add(g);en.push(e);return e}
+const boss=mutant(0,0,true);
+function street(){const k=16+32*((R()*8|0)-4),v=(R()*2-1)*100;return R()<.5?[k,v]:[v,k]}
+function spawn(){for(let i=0;i<9;i++){const[x,z]=street();if(Math.hypot(x-P.x,z-P.z)>28){mutant(x,z);return}}}
+function push(p,r){for(const[bx,bz]of bl){const cx=Math.max(bx-10,Math.min(bx+10,p.x)),cz=Math.max(bz-10,Math.min(bz+10,p.z)),dx=p.x-cx,dz=p.z-cz,d=Math.hypot(dx,dz);if(d<r){if(d<1e-4)p.x+=r;else{p.x+=dx/d*(r-d);p.z+=dz/d*(r-d)}}}
+ if(boss.hp>0){const dx=p.x,dz=p.z,d=Math.hypot(dx,dz),Rr=4+r;if(d<Rr&&d>1e-4){p.x=dx/d*Rr;p.z=dz/d*Rr}}}
+const ray=new THREE.Raycaster();ray.far=120;
+function hit(e,d,weak){e.hp-=d;e.mat.emissive.setHex(weak?0x00aa66:0xaa0000);e.fl=.1;if(weak)msg('¡PUNTO DÉBIL!');e.weak=weak;
+ if(e.hp<=0&&en.includes(e)){en.splice(en.indexOf(e),1);sc.remove(e.g);kills++;const n=e.boss?25:(weak?2:1);for(let i=0;i<n;i++){const m=new THREE.Mesh(stGeo,stMat);m.scale.setScalar(1.6);m.position.set(e.g.position.x+(R()-.5)*(e.boss?8:1.5),.6,e.g.position.z+(R()-.5)*(e.boss?8:1.5));sc.add(m);pk.push(m)}
+  if(e.boss){over=true;document.exitPointerLock&&document.exitPointerLock();end('¡VICTORIA!','Destruiste al Mutante Gigante. Piedras recogidas al final: '+stones)}}}
+function shoot(t){const w=WP[cw];if(t<nx)return;nx=t+w.cd;kick=.08;const tg=[...solids];en.forEach(e=>e.g.traverse(m=>{if(m.isMesh)tg.push(m)}));
+ for(let i=0;i<w.p;i++){ray.setFromCamera(new THREE.Vector2((R()-.5)*w.s,(R()-.5)*w.s),cam);const h=ray.intersectObjects(tg,false)[0];if(h&&h.object.userData.e){const w2=!!h.object.userData.stone;hit(h.object.userData.e,w.d*(w2?4:1),w2)}}}
+function hurt(n){hp-=n;$('dm').style.opacity=.45;if(hp<=0&&!over){over=true;document.exitPointerLock&&document.exitPointerLock();end('HAS MUERTO','Mutantes abatidos: '+kills)}}
+function end(t,s){$('ov').innerHTML=`<h1>${t}</h1><p>${s}</p><p><b>Clic para reiniciar</b></p>`;$('ov').style.display='flex';$('ov').onclick=()=>location.reload()}
+addEventListener('keydown',e=>{K[e.code]=1;if(e.code=='Space')firing=true;const n=+e.key;if(n>=1&&n<=4&&started&&!over)pick(n-1)});
+addEventListener('keyup',e=>{K[e.code]=0;if(e.code=='Space')firing=false});
+addEventListener('mousedown',()=>{if(started)firing=true});addEventListener('mouseup',()=>firing=false);
+addEventListener('mousemove',e=>{if(document.pointerLockElement){yaw-=e.movementX*.0022;pitch=Math.max(-1.4,Math.min(1.4,pitch-e.movementY*.0022))}});
+document.addEventListener('pointerlockchange',()=>{const l=!!document.pointerLockElement;if(l)usesLock=true;if(!l&&usesLock&&!over){paused=true;$('go').innerHTML='<b>Pausa — haz clic para continuar</b>';$('ov').style.display='flex'}});
+$('ov').onclick=()=>{$('ov').style.display='none';started=true;paused=false;try{ren.domElement.requestPointerLock()}catch(e){}};
+shop();let last=performance.now(),T=0;
+function loop(now){requestAnimationFrame(loop);const dt=Math.min(.05,(now-last)/1000);last=now;T+=dt;
+ if(started&&!paused&&!over){
+  if(K.ArrowLeft)yaw+=2*dt;if(K.ArrowRight)yaw-=2*dt;if(K.ArrowUp)pitch=Math.min(1.4,pitch+dt);if(K.ArrowDown)pitch=Math.max(-1.4,pitch-dt);
+  let f=(K.KeyW?1:0)-(K.KeyS?1:0),r=(K.KeyD?1:0)-(K.KeyA?1:0);const l=Math.hypot(f,r)||1,sp=(K.ShiftLeft?11:8)*dt/l;
+  P.x+=(-Math.sin(yaw)*f+Math.cos(yaw)*r)*sp;P.z+=(-Math.cos(yaw)*f-Math.sin(yaw)*r)*sp;P.x=Math.max(-118,Math.min(118,P.x));P.z=Math.max(-118,Math.min(118,P.z));push(P,.5);
+  cam.position.set(P.x,1.7,P.z);cam.rotation.set(pitch,yaw,0);if(firing)shoot(T);kick=Math.max(0,kick-dt*.5);gun.position.z=-.6+kick;
+  spT-=dt;const mc=en.length-1;if(spT<=0&&mc<14){spawn();spT=Math.max(1.4,4-kills*.06)}
+  for(const e of en){const g=e.g,dx=P.x-g.position.x,dz=P.z-g.position.z,d=Math.hypot(dx,dz);
+   if(e.fl>0){e.fl-=dt;if(e.fl<=0)e.mat.emissive.setHex(0)}e.s.scale.setScalar(1+.25*Math.sin(T*5));
+   if(e.boss){e.sm-=dt;if(e.sm<=0&&en.length<30){e.sm=7;for(let i=0;i<2;i++){const a=R()*6.28;mutant(Math.cos(a)*7,Math.sin(a)*7)}msg('¡El Gigante invoca mutantes!','var(--ac)')}
+    if(d<9){e.at-=dt;if(e.at<=0){e.at=1.2;hurt(15)}}g.rotation.y=Math.atan2(dx,dz)}
+   else{if(d>1.1){g.position.x+=dx/d*e.sp*dt;g.position.z+=dz/d*e.sp*dt}push(g.position,.5);g.rotation.y=Math.atan2(dx,dz);e.t+=dt*6;g.position.y=Math.abs(Math.sin(e.t))*.1;e.parts[2].rotation.x=e.parts[3].rotation.x=-1.2+Math.sin(e.t)*.2;
+    e.hc-=dt;if(d<1.4&&e.hc<=0){e.hc=.8;hurt(8)}}}
+  for(let i=pk.length-1;i>=0;i--){const m=pk[i],dx=P.x-m.position.x,dz=P.z-m.position.z,d=Math.hypot(dx,dz);m.rotation.y+=dt*3;if(d<5){m.position.x+=dx/d*10*dt;m.position.z+=dz/d*10*dt}if(d<1.2){sc.remove(m);pk.splice(i,1);stones++;shop()}}
+  $('dm').style.opacity=Math.max(0,$('dm').style.opacity-dt);
+  $('hp').style.width=Math.max(0,hp)+'%';$('bh').style.width=Math.max(0,boss.hp/boss.max*100)+'%';$('wn').textContent='Mutantes abatidos: '+kills;$('bd').textContent='Gigante a '+Math.round(Math.hypot(P.x,P.z))+' m'}
+ ren.render(sc,cam)}
+requestAnimationFrame(loop);
+</script></body></html>

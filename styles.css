@@ -1,6 +1,7 @@
 :root {
   --lavanda: #75619d;
   --morado: #3f2a5a;
+  --indigo: #3f2a5a;
   --fondo: #beaedb;
   --fondo-tarjeta: #FFFFFF;
   --texto: #33344A;
@@ -146,6 +147,83 @@ section {
 .tarjeta p {
   color: var(--texto-suave);
   font-size: 0.95rem;
+}
+
+/* =========================================
+   Juegos
+========================================= */
+.juegos {
+  background-color: #F8F7FC;
+}
+
+.juegos h2 {
+  color: var(--indigo);
+  font-size: 1.8rem;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.juegos-intro {
+  text-align: center;
+  color: var(--texto-suave);
+  margin-bottom: 30px;
+}
+
+.tarjetas-juegos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  justify-content: center;
+}
+
+.tarjeta-juego {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.tarjeta-juego:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 8px 24px rgba(58, 62, 108, 0.14);
+}
+
+.juego-icono {
+  font-size: 2.2rem;
+  margin-bottom: 12px;
+}
+
+.tarjeta-juego h3 {
+  color: var(--indigo);
+  font-size: 1.15rem;
+  margin-bottom: 10px;
+}
+
+.tarjeta-juego p {
+  color: var(--texto-suave);
+  font-size: 0.95rem;
+  margin-bottom: 22px;
+  flex-grow: 1;
+}
+
+.btn-juego {
+  display: inline-block;
+  padding: 10px 20px;
+  background-color: var(--indigo);
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.btn-juego:hover,
+.btn-juego:focus-visible {
+  background-color: var(--lavanda);
+  color: #ffffff;
+  transform: scale(1.03);
 }
 
 /* =========================================
