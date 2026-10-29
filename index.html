@@ -7,6 +7,75 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Estilos dedicados para la sección de Juegos */
+    .juegos {
+      background-color: #F8F7FC;
+    }
+    .juegos h2 {
+      color: #3f2a5a;
+      font-size: 1.8rem;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    .juegos-intro {
+      text-align: center;
+      color: #6A6C87;
+      margin-bottom: 30px;
+    }
+    .tarjetas-juegos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      justify-content: center;
+    }
+    .tarjeta-juego {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .tarjeta-juego:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 8px 24px rgba(58, 62, 108, 0.16);
+    }
+    .juego-icono {
+      font-size: 2.2rem;
+      margin-bottom: 12px;
+      display: block;
+    }
+    .tarjeta-juego h3 {
+      color: #3f2a5a;
+      font-size: 1.15rem;
+      margin-bottom: 10px;
+    }
+    .tarjeta-juego p {
+      color: #6A6C87;
+      font-size: 0.95rem;
+      margin-bottom: 22px;
+      flex-grow: 1;
+    }
+    .btn-juego {
+      display: inline-block;
+      padding: 10px 22px;
+      background-color: #3f2a5a !important;
+      color: #ffffff !important;
+      font-size: 0.95rem;
+      font-weight: 700;
+      border-radius: 8px;
+      text-decoration: none !important;
+      box-shadow: 0 3px 8px rgba(63, 42, 90, 0.2);
+      transition: background-color 0.2s ease, transform 0.2s ease;
+      cursor: pointer;
+    }
+    .btn-juego:hover,
+    .btn-juego:focus-visible {
+      background-color: #75619d !important;
+      color: #ffffff !important;
+      transform: scale(1.04);
+    }
+  </style>
 </head>
 <body>
 
@@ -65,28 +134,28 @@
           <div class="juego-icono">👾</div>
           <h3>Ciudad Mutante</h3>
           <p>Juego de supervivencia y acción en 3D con Three.js. Defiende la ciudad, elimina mutantes y compra mejoras.</p>
-          <a href="Ciudad Mutante.html" class="btn-juego">Ciudad Mutante</a>
+          <a href="Ciudad Mutante.html" class="btn-juego" style="display: inline-block; padding: 10px 22px; background-color: #3f2a5a; color: #ffffff; font-weight: 700; border-radius: 8px; text-decoration: none;">Ciudad Mutante</a>
         </article>
 
         <article class="tarjeta tarjeta-juego">
           <div class="juego-icono">⚽</div>
           <h3>Fútbol Atari</h3>
           <p>Minijuego arcade estilo retro inspirado en los clásicos de Atari. Cuenta con modo solitario y para 2 jugadores.</p>
-          <a href="Fútbol Atari.html" class="btn-juego">Fútbol Atari</a>
+          <a href="Fútbol Atari.html" class="btn-juego" style="display: inline-block; padding: 10px 22px; background-color: #3f2a5a; color: #ffffff; font-weight: 700; border-radius: 8px; text-decoration: none;">Fútbol Atari</a>
         </article>
 
         <article class="tarjeta tarjeta-juego">
           <div class="juego-icono">🏓</div>
           <h3>Ping-Pong vs Máquina</h3>
           <p>El clásico juego de mesa digital de reflejos donde te enfrentas a una inteligencia artificial competitiva.</p>
-          <a href="Ping-pong contra la máquina.html" class="btn-juego">Ping-Pong vs Máquina</a>
+          <a href="Ping-pong contra la máquina.html" class="btn-juego" style="display: inline-block; padding: 10px 22px; background-color: #3f2a5a; color: #ffffff; font-weight: 700; border-radius: 8px; text-decoration: none;">Ping-Pong vs Máquina</a>
         </article>
 
         <article class="tarjeta tarjeta-juego">
           <div class="juego-icono">🎯</div>
           <h3>Tiro al Blanco Aéreo</h3>
           <p>Pon a prueba tu puntería y precisión derribando todos los objetivos aéreos en movimiento contrarreloj.</p>
-          <a href="Tiro al blanco aéreo (1).html" class="btn-juego">Tiro al Blanco Aéreo</a>
+          <a href="Tiro al blanco aéreo (1).html" class="btn-juego" style="display: inline-block; padding: 10px 22px; background-color: #3f2a5a; color: #ffffff; font-weight: 700; border-radius: 8px; text-decoration: none;">Tiro al Blanco Aéreo</a>
         </article>
 
       </div>
